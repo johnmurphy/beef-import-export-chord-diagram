@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    
+    <style>
+        /* =================================================================
+           BASE STYLES
+           ================================================================= */
+        
+        body {
+            margin: 0;
+            padding: 10px 0;
+            font-family: sans-serif;
+            background-color: #f9f9f9;
+            overflow-x: hidden; /* Prevent horizontal scrolling */
+        }
+
+        /* Global tooltip for interactive elements */
+        #tooltip {
+            color: white;
+            opacity: .9;
+            background: #333;
+            padding: 5px;
+            border: 1px solid lightgrey;
+            border-radius: 5px;
+            position: absolute;
+            z-index: 10;
+            visibility: hidden;
+            white-space: nowrap;
+            pointer-events: none;
+            font-family: sans-serif;
+        }
+        
+        /* =================================================================
+           LAYOUT CONTAINERS
+           ================================================================= */
+        
+        /* Individual chord diagram container */
+        .diagram-container {
+            display: inline-block;
+            vertical-align: top;
+            margin: 0 20px;
+        }
+        
+        /* Main wrapper ensuring diagrams display side-by-side */
+        .container-wrapper {
+            text-align: center;
+            width: 100%;
+            min-width: 1880px; /* Ensures side-by-side layout for 1920px screens */
+        }
+
+        /* =================================================================
+           HEADER STYLES
+           ================================================================= */
+        
+        .main-title {
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 5px;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+
+        .main-subtitle {
+            text-align: center;
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #7f8c8d;
+            font-style: italic;
+        }
+
+        /* =================================================================
+           FOOTER STYLES
+           ================================================================= */
+        
+        .footer {
+            text-align: center;
+            margin-top: 10px;
+            padding: 8px 10px;
+            color: #7f8c8d;
+            font-size: 12px;
+            border-top: 1px solid #ddd;
+            line-height: 1.4;
+        }
+
+        .footer p {
+            margin: 5px 0;
+        }
+
+        .footer a {
+            color: #4682B4;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        /* =================================================================
+           CHORD DIAGRAM STYLES
+           ================================================================= */
+        
+        /* Year title above each chord diagram */
+        .year-title {
+            text-align: center;
+            font-size: 24px;
+            margin-bottom: 10px;
+            margin-top: 0;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+        
+        /* SVG circle element (background of chord diagram) */
+        .circle circle {
+            fill: none;
+            pointer-events: all;
+        }
+        
+        /* Country arc segments */
+        path.group {
+            fill-opacity: .7;
+        }
+        
+        /* Connection ribbons between countries */
+        path.chord {
+            fill-opacity: .7;
+            stroke: #000;
+            stroke-width: .25px;
+        }
+        
+        /* Fade effect for non-hovered chords */
+        .circle:hover path.fade {
+            opacity: 0.1;
+        }
+
+        /* =================================================================
+           ERROR AND LOADING STATES
+           ================================================================= */
+        
+        .error-message {
+            color: #d32f2f;
+            font-size: 16px;
+            text-align: center;
+            margin: 20px;
+            padding: 15px;
+            border: 1px solid #d32f2f;
+            border-radius: 5px;
+            background-color: #ffebee;
+        }
+
+        .loading {
+            text-align: center;
+            font-size: 18px;
+            color: #666;
+            margin: 50px;
+        }
+            
+        /* Generic text styles */
+        p, h1, h3, html {
+            color: #474747;
+            font-family: sans-serif;
+        }
+        
+        .annotate {
+            font-size: 14px;
+            fill: #474747;
+            font-family: sans-serif;
+        }
+
+        /* =================================================================
+           INSIGHTS PANEL STYLES
+           Collapsible panel displaying key trade metrics
+           ================================================================= */
+        
+        .insights-container {
+            max-width: 1600px;
+            margin: 0 auto 15px auto;
+            padding: 18px 20px;
+            background: linear-gradient(135deg, #3CB371 0%, #2E8B57 100%);
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        /* Collapsed state - reduced padding and margin */
+        .insights-container.collapsed {
+            padding: 8px 20px;
+            margin-bottom: 8px;
+        }
+
+        /* Toggle button to show/hide insights */
+        .insights-toggle {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 6px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            display: block;
+            margin: 0 auto 10px auto;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .insights-toggle:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* Content wrapper with smooth expand/collapse animation */
+        .insights-content {
+            max-height: 500px;
+            overflow: hidden;
+            transition: max-height 0.3s ease, opacity 0.3s ease;
+            opacity: 1;
+        }
+
+        .insights-content.collapsed {
+            max-height: 0;
+            opacity: 0;
+        }
+
+        .insights-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+            text-align: center;
+            margin-bottom: 15px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* Grid layout for metric cards */
+        .insights-grid {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: stretch;
+            gap: 15px;
+        }
+
+        /* Individual metric card */
+        .insight-item {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 6px;
+            padding: 15px 12px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Hover effect for cards */
+        .insight-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Metric label (e.g., "2025 TOTAL US EXPORTS") */
+        .insight-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+
+        /* Metric value (e.g., "2.95B") */
+        .insight-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }
+
+        /* Percentage change indicator */
+        .insight-change {
+            font-size: 13px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 12px;
+            display: inline-block;
+            margin-top: 3px;
+        }
+
+        /* Green background for increases */
+        .insight-change.increase {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        /* Red background for decreases */
+        .insight-change.decrease {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        /* Blue background for neutral/informational */
+        .insight-change.neutral {
+            background-color: #e7f3ff;
+            color: #004085;
+        }
+
+        /* Row container for side-by-side diagrams */
+        .diagrams-row {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <!-- Tooltip for displaying trade details on hover -->
+    <div id="tooltip"></div>
+    
+    <!-- Page header -->
+    <div class="main-title">US Beef & Veal : Import / Export Exploratory Analysis</div>
+    <div class="main-subtitle">Interactive Chord Diagram Comparison: 2022 vs 2025</div>
+    
+    <!-- Main container for insights and chord diagrams -->
+    <div class="container-wrapper" id="charts-container"></div>
+    
+    <!-- Footer with instructions and data source -->
+    <div class="footer">
+        <p><strong>How to Use:</strong> Hover over country arcs to highlight trade connections. Hover over chords to see detailed trade volumes.</p>
+        <p><strong>Data Source:</strong> <a href="https://www.ers.usda.gov/data-products/livestock-and-meat-international-trade-data" target="_blank">USDA Economic Research Service - Livestock and Meat International Trade Data</a> | <strong>Units:</strong> Carcass Weight Equivalent (CWE) lbs | <strong>Visualization:</strong> D3.js Chord Diagram</p>
+    </div>
+
+    <script type="text/javascript">
+        //*******************************************************************
+        //  CHORD MAPPER
+        //  Converts flat CSV data into a matrix format for D3 chord diagrams
+        //*******************************************************************
+        function chordMpr(data) {
+            var mpr = {}, mmap = {}, n = 0,
+                matrix = [], filter, accessor;
+
+            // Set filtering function to determine which rows match
+            mpr.setFilter = function(fun) {
+                filter = fun;
+                return this;
+            };
+            
+            // Set accessor function to extract values from filtered rows
+            mpr.setAccessor = function(fun) {
+                accessor = fun;
+                return this;
+            };
+            
+            // Generate the matrix from the data
+            mpr.getMatrix = function() {
+                matrix = [];
+                _.each(mmap, function(a) {
+                    if (!matrix[a.id]) matrix[a.id] = [];
+                    _.each(mmap, function(b) {
+                        var recs = _.filter(data, function(row) {
+                            return filter(row, a, b);
+                        });
+                        matrix[a.id][b.id] = accessor(recs, a, b);
+                    });
+                });
+                return matrix;
+            };
+            
+            // Get the mapping of country names to indices
+            mpr.getMap = function() {
+                return mmap;
+            };
+            
+            // Debug utility to print matrix to console
+            mpr.printMatrix = function() {
+                _.each(matrix, function(elem) {
+                    console.log(elem);
+                });
+            };
+            
+            // Add a single value to the map
+            mpr.addToMap = function(value, info) {
+                if (!mmap[value]) {
+                    mmap[value] = { name: value, id: n++, data: info };
+                }
+            };
+            
+            // Add all unique values from a column to the map
+            mpr.addValuesToMap = function(varName, info) {
+                var values = _.uniq(_.map(data, varName));
+                _.map(values, function(v) {
+                    if (!mmap[v]) {
+                        mmap[v] = { name: v, id: n++, data: info };
+                    }
+                });
+                return this;
+            };
+            
+            return mpr;
+        }
+
+        //*******************************************************************
+        //  CHORD READER
+        //  Extracts readable information from chord diagram data structures
+        //*******************************************************************
+        function chordRdr(matrix, mmap) {
+            return function(d) {
+                var i, j, s, t, g, m = {};
+                
+                // If this is a chord (connection between two countries)
+                if (d.source) {
+                    i = d.source.index; 
+                    j = d.target.index;
+                    s = _.filter(mmap, {id: i});
+                    t = _.filter(mmap, {id: j});
+                    m.sname = s[0].name;      // Source country name
+                    m.sdata = d.source.value;
+                    m.svalue = +d.source.value;
+                    m.stotal = _.sum(matrix[i]); // Total for source country
+                    m.tname = t[0].name;      // Target country name
+                    m.tdata = d.target.value;
+                    m.tvalue = +d.target.value;
+                    m.ttotal = _.sum(matrix[j]); // Total for target country
+                } 
+                // If this is a group (country arc)
+                else {
+                    g = _.filter(mmap, {id: d.index});
+                    m.gname = g[0].name;      // Country name
+                    m.gdata = g[0].data;
+                    m.gvalue = d.value;
+                }
+                m.mtotal = _.sum(_.flatten(matrix)); // Grand total
+                return m;
+            };
+        }
+
+        //*******************************************************************
+        //  CONFIGURATION
+        //  Define CSV file names and display labels for each chart
+        //*******************************************************************
+        const CONFIG = {
+            chart1: {
+                csvFile: 'Beef-Import-Export-Year-2022.csv',
+                year: '2022 (Jan - Jul)',
+                subtitle: ''
+            },
+            chart2: {
+                csvFile: 'Beef-Import-Export-Year-2025.csv', 
+                year: '2025 (Jan - Jul)',
+                subtitle: ''
+            }
+        };
+
+        //*******************************************************************
+        //  LOAD DATA AND CREATE CHARTS
+        //  Main initialization - loads CSV files and creates visualizations
+        //*******************************************************************
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = d3.select('#charts-container');
+            
+            // Show loading message while data loads
+            container.append('div')
+                .attr('class', 'loading')
+                .text('Loading data...');
+
+            // Load both CSV files in parallel
+            Promise.all([
+                d3.csv(CONFIG.chart1.csvFile),  // 2022 data
+                d3.csv(CONFIG.chart2.csvFile)   // 2025 data
+            ]).then(function(datasets) {
+                // Clear loading message
+                container.select('.loading').remove();
+                
+                // Validate that both datasets have required columns
+                const [data2022, data2025] = datasets;
+                
+                if (!validateData(data2022, CONFIG.chart1.csvFile) || 
+                    !validateData(data2025, CONFIG.chart2.csvFile)) {
+                    return;
+                }
+
+                // Create side-by-side charts with insights panel
+                createChartPair(data2022, data2025, container);
+                
+            }).catch(function(error) {
+                // Handle loading errors
+                container.select('.loading').remove();
+                console.error('Error loading CSV files:', error);
+                
+                container.append('div')
+                    .attr('class', 'error-message')
+                    .html(`
+                        <strong>Error loading CSV files</strong><br/>
+                        Make sure both files exist:<br/>
+                        • ${CONFIG.chart1.csvFile}<br/>
+                        • ${CONFIG.chart2.csvFile}<br/>
+                        Files should have columns: FROM_COUNTRY, TO_COUNTRY, AMOUNT
+                    `);
+            });
+        });
+
+        //*******************************************************************
+        //  VALIDATE DATA
+        //  Checks that CSV has required columns
+        //*******************************************************************
+        function validateData(data, filename) {
+            if (data.length === 0) {
+                console.error(`No data found in ${filename}`);
+                showError(`No data found in ${filename}`);
+                return false;
+            }
+            
+            const firstRow = data[0];
+            const requiredColumns = ['FROM_COUNTRY', 'TO_COUNTRY', 'AMOUNT'];
+            const hasAllColumns = requiredColumns.every(col => firstRow.hasOwnProperty(col));
+            
+            if (!hasAllColumns) {
+                console.error(`${filename} must have columns: FROM_COUNTRY, TO_COUNTRY, AMOUNT`);
+                console.log(`Found columns in ${filename}:`, Object.keys(firstRow));
+                showError(`${filename} missing required columns`);
+                return false;
+            }
+            
+            return true;
+        }
+
+        //*******************************************************************
+        //  SHOW ERROR
+        //  Displays error message to user
+        //*******************************************************************
+        function showError(message) {
+            d3.select('#charts-container')
+                .append('div')
+                .attr('class', 'error-message')
+                .text(message);
+        }
+
+        //*******************************************************************
+        //  CREATE GLOBAL COLOR MAP
+        //  Assigns consistent colors to countries across both charts
+        //*******************************************************************
+        function createGlobalColorMap(data1, data2) {
+            // Extract all unique countries from both datasets
+            var countries1 = _.uniq(_.concat(
+                _.map(data1, 'FROM_COUNTRY'),
+                _.map(data1, 'TO_COUNTRY')
+            ));
+            var countries2 = _.uniq(_.concat(
+                _.map(data2, 'FROM_COUNTRY'),
+                _.map(data2, 'TO_COUNTRY')
+            ));
+            
+            // Combine and sort alphabetically for consistency
+            var allCountries = _.uniq(_.concat(countries1, countries2)).sort();
+            
+            console.log('Total unique countries:', allCountries.length);
+            console.log('Countries:', allCountries);
+            
+            // Color palette - subdued colors for better visibility
+            var colors = [
+                '#6B8E23', '#4682B4', '#B8860B', '#CD5C5C', '#8B668B',
+                '#5F9EA0', '#8B7355', '#708090', '#D2691E', '#9370DB',
+                '#4682B4', '#6B8E23', '#CD853F', '#5F9EA0', '#8B668B',
+                '#BC8F8F', '#BDB76B', '#4682B4', '#8FBC8F', '#CD5C5C',
+                '#9ACD32', '#6495ED', '#D2691E', '#20B2AA', '#9370DB',
+                '#C71585', '#DAA520', '#5F9EA0', '#66CDAA', '#CD5555',
+                '#9ACD32', '#87CEEB', '#F4A460', '#48D1CC', '#9370DB',
+                '#DB7093', '#D2B48C', '#6495ED', '#8FBC8F', '#CD6666',
+                '#ADFF2F', '#87CEFA', '#FA8072', '#40E0D0', '#BA55D3',
+                '#C0629B', '#F0E68C', '#6FA8DC', '#90EE90', '#E9967A'
+            ];
+            
+            // Create mapping object: country name -> color
+            var colorMap = {};
+            
+            // Assign United States a specific green (matches insights panel)
+            colorMap['United States'] = '#2E8B57';  // SeaGreen
+            
+            // Assign colors to all other countries
+            var colorIndex = 0;
+            allCountries.forEach(function(country) {
+                if (country !== 'United States') {
+                    colorMap[country] = colors[colorIndex % colors.length];
+                    colorIndex++;
+                }
+            });
+            
+            return colorMap;
+        }
+
+        //*******************************************************************
+        //  CREATE CHART PAIR
+        //  Creates both chord diagrams and insights panel
+        //*******************************************************************
+        function createChartPair(data2022, data2025, container) {
+            // Create consistent color mapping across both charts
+            var globalColorMap = createGlobalColorMap(data2022, data2025);
+            
+            // Calculate key insights (totals, changes, etc.)
+            var insights = calculateInsights(data2022, data2025);
+            
+            // Create collapsible insights panel at the top
+            const insightsContainer = container
+                .append('div')
+                .attr('class', 'insights-container');
+            
+            populateInsights(insightsContainer, insights);
+            
+            // Create row container for diagrams
+            const diagramsRow = container
+                .append('div')
+                .attr('class', 'diagrams-row');
+            
+            // Create containers for individual charts (side-by-side)
+            const chart2022Container = diagramsRow
+                .append('div')
+                .attr('class', 'diagram-container');
+            
+            const chart2025Container = diagramsRow
+                .append('div')
+                .attr('class', 'diagram-container');
+
+            // Render both chord diagrams
+            createChart(data2022, chart2022Container, CONFIG.chart1.year, CONFIG.chart1.subtitle, globalColorMap);
+            createChart(data2025, chart2025Container, CONFIG.chart2.year, CONFIG.chart2.subtitle, globalColorMap);
+        }
+
+        //*******************************************************************
+        //  CALCULATE KEY INSIGHTS
+        //  Computes totals and percentage changes for insight cards
+        //*******************************************************************
+        function calculateInsights(data2022, data2025) {
+            // Calculate US export totals
+            var usExports2022 = _.sumBy(data2022.filter(d => d.FROM_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var usExports2025 = _.sumBy(data2025.filter(d => d.FROM_COUNTRY === 'United States'), d => +d.AMOUNT);
+            
+            // Calculate US import totals
+            var usImports2022 = _.sumBy(data2022.filter(d => d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var usImports2025 = _.sumBy(data2025.filter(d => d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            
+            // Find top export destination for each year
+            var topPartner2022 = _.maxBy(data2022.filter(d => d.FROM_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var topPartner2025 = _.maxBy(data2025.filter(d => d.FROM_COUNTRY === 'United States'), d => +d.AMOUNT);
+            
+            // Calculate Mexico import totals (US imports from Mexico)
+            var mexicoImports2022 = _.sumBy(data2022.filter(d => d.FROM_COUNTRY === 'Mexico' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var mexicoImports2025 = _.sumBy(data2025.filter(d => d.FROM_COUNTRY === 'Mexico' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            
+            // Calculate Brazil import totals (US imports from Brazil)
+            var brazilImports2022 = _.sumBy(data2022.filter(d => d.FROM_COUNTRY === 'Brazil' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var brazilImports2025 = _.sumBy(data2025.filter(d => d.FROM_COUNTRY === 'Brazil' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            
+            // Calculate Canada import totals (US imports from Canada)
+            var canadaImports2022 = _.sumBy(data2022.filter(d => d.FROM_COUNTRY === 'Canada' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var canadaImports2025 = _.sumBy(data2025.filter(d => d.FROM_COUNTRY === 'Canada' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            
+            // Debug logging to console for verification
+            console.log('=== INSIGHTS CALCULATIONS ===');
+            console.log('US Exports 2022:', usExports2022.toLocaleString());
+            console.log('US Exports 2025:', usExports2025.toLocaleString());
+            console.log('US Imports 2022:', usImports2022.toLocaleString());
+            console.log('US Imports 2025:', usImports2025.toLocaleString());
+            console.log('Mexico Imports 2022:', mexicoImports2022.toLocaleString());
+            console.log('Mexico Imports 2025:', mexicoImports2025.toLocaleString());
+            console.log('Mexico Change %:', ((mexicoImports2025 - mexicoImports2022) / mexicoImports2022 * 100).toFixed(1));
+            console.log('Brazil Imports 2022:', brazilImports2022.toLocaleString());
+            console.log('Brazil Imports 2025:', brazilImports2025.toLocaleString());
+            console.log('Brazil Change %:', ((brazilImports2025 - brazilImports2022) / brazilImports2022 * 100).toFixed(1));
+            console.log('Canada Imports 2022:', canadaImports2022.toLocaleString());
+            console.log('Canada Imports 2025:', canadaImports2025.toLocaleString());
+            console.log('Canada Change %:', ((canadaImports2025 - canadaImports2022) / canadaImports2022 * 100).toFixed(1));
+            
+            // Return object with all calculated values
+            return {
+                usExports2022: usExports2022,
+                usExports2025: usExports2025,
+                usExportsChange: ((usExports2025 - usExports2022) / usExports2022 * 100).toFixed(1),
+                usImports2022: usImports2022,
+                usImports2025: usImports2025,
+                usImportsChange: ((usImports2025 - usImports2022) / usImports2022 * 100).toFixed(1),
+                topPartner2022: topPartner2022 ? topPartner2022.TO_COUNTRY : 'N/A',
+                topPartner2025: topPartner2025 ? topPartner2025.TO_COUNTRY : 'N/A',
+                mexicoImports2025: mexicoImports2025,
+                mexicoChange: ((mexicoImports2025 - mexicoImports2022) / mexicoImports2022 * 100).toFixed(1),
+                brazilImports2025: brazilImports2025,
+                brazilChange: ((brazilImports2025 - brazilImports2022) / brazilImports2022 * 100).toFixed(1),
+                canadaImports2025: canadaImports2025,
+                canadaChange: ((canadaImports2025 - canadaImports2022) / canadaImports2022 * 100).toFixed(1)
+            };
+        }
+
+        //*******************************************************************
+        //  POPULATE INSIGHTS PANEL
+        //  Creates the collapsible panel with six metric cards
+        //*******************************************************************
+        function populateInsights(container, insights) {
+            // Start collapsed by default to maximize space for diagrams
+            container.classed('collapsed', true);
+            
+            // Add toggle button to show/hide metrics
+            var toggleBtn = container.append('button')
+                .attr('class', 'insights-toggle')
+                .text('Show Key Metrics');
+            
+            // Create content wrapper (collapsed by default)
+            var contentWrapper = container.append('div')
+                .attr('class', 'insights-content collapsed');
+            
+            // Create horizontal grid for metric cards
+            var grid = contentWrapper.append('div')
+                .attr('class', 'insights-grid')
+                .style('display', 'flex')
+                .style('flex-direction', 'row')
+                .style('justify-content', 'space-between')
+                .style('align-items', 'stretch');
+            
+            // CARD 1: US Exports
+            var exportsDiv = grid.append('div')
+                .attr('class', 'insight-item')
+                .style('flex', '1');
+            exportsDiv.append('div').attr('class', 'insight-label').text('2025 TOTAL US EXPORTS');
+            exportsDiv.append('div').attr('class', 'insight-value')
+                .text(formatNumber(insights.usExports2025));
+            exportsDiv.append('div')
+                .attr('class', 'insight-change ' + (insights.usExportsChange >= 0 ? 'increase' : 'decrease'))
+                .text((insights.usExportsChange >= 0 ? '↑ ' : '↓ ') + Math.abs(insights.usExportsChange) + '%');
+            
+            // CARD 2: US Imports
+            var importsDiv = grid.append('div')
+                .attr('class', 'insight-item')
+                .style('flex', '1');
+            importsDiv.append('div').attr('class', 'insight-label').text('2025 TOTAL US IMPORTS');
+            importsDiv.append('div').attr('class', 'insight-value')
+                .text(formatNumber(insights.usImports2025));
+            importsDiv.append('div')
+                .attr('class', 'insight-change ' + (insights.usImportsChange >= 0 ? 'increase' : 'decrease'))
+                .text((insights.usImportsChange >= 0 ? '↑ ' : '↓ ') + Math.abs(insights.usImportsChange) + '%');
+            
+            // CARD 3: Top Export Market
+            var topDiv = grid.append('div')
+                .attr('class', 'insight-item')
+                .style('flex', '1');
+            topDiv.append('div').attr('class', 'insight-label').text('2025 TOP EXPORT MARKET');
+            topDiv.append('div').attr('class', 'insight-value').text(insights.topPartner2025);
+            topDiv.append('div').attr('class', 'insight-change neutral')
+                .text('2025');
+            
+            // CARD 4: Mexico Imports
+            var mexicoDiv = grid.append('div')
+                .attr('class', 'insight-item')
+                .style('flex', '1');
+            mexicoDiv.append('div').attr('class', 'insight-label').text('2025 MEXICO IMPORTS');
+            mexicoDiv.append('div').attr('class', 'insight-value')
+                .text(formatNumber(insights.mexicoImports2025));
+            mexicoDiv.append('div')
+                .attr('class', 'insight-change ' + (insights.mexicoChange >= 0 ? 'increase' : 'decrease'))
+                .text((insights.mexicoChange >= 0 ? '↑ ' : '↓ ') + Math.abs(insights.mexicoChange) + '%');
+            
+            // CARD 5: Brazil Imports
+            var brazilDiv = grid.append('div')
+                .attr('class', 'insight-item')
+                .style('flex', '1');
+            brazilDiv.append('div').attr('class', 'insight-label').text('2025 BRAZIL IMPORTS');
+            brazilDiv.append('div').attr('class', 'insight-value')
+                .text(formatNumber(insights.brazilImports2025));
+            brazilDiv.append('div')
+                .attr('class', 'insight-change ' + (insights.brazilChange >= 0 ? 'increase' : 'decrease'))
+                .text((insights.brazilChange >= 0 ? '↑ ' : '↓ ') + Math.abs(insights.brazilChange) + '%');
+            
+            // CARD 6: Canada Imports
+            var canadaDiv = grid.append('div')
+                .attr('class', 'insight-item')
+                .style('flex', '1');
+            canadaDiv.append('div').attr('class', 'insight-label').text('2025 CANADA IMPORTS');
+            canadaDiv.append('div').attr('class', 'insight-value')
+                .text(formatNumber(insights.canadaImports2025));
+            canadaDiv.append('div')
+                .attr('class', 'insight-change ' + (insights.canadaChange >= 0 ? 'increase' : 'decrease'))
+                .text((insights.canadaChange >= 0 ? '↑ ' : '↓ ') + Math.abs(insights.canadaChange) + '%');
+            
+            // Add click handler to toggle button
+            toggleBtn.on('click', function() {
+                var isCollapsed = contentWrapper.classed('collapsed');
+                
+                if (isCollapsed) {
+                    // Expand the panel
+                    contentWrapper.classed('collapsed', false);
+                    container.classed('collapsed', false);
+                    toggleBtn.text('Hide Key Metrics');
+                } else {
+                    // Collapse the panel
+                    contentWrapper.classed('collapsed', true);
+                    container.classed('collapsed', true);
+                    toggleBtn.text('Show Key Metrics');
+                }
+            });
+        }
+
+        //*******************************************************************
+        //  FORMAT NUMBER
+        //  Converts large numbers to readable format (e.g., 2.95B, 651.32M)
+        //*******************************************************************
+        function formatNumber(num) {
+            if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+            if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+            if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+            return num.toFixed(0);
+        }
+
+        //*******************************************************************
+        //  CREATE INDIVIDUAL CHART
+        //  Processes data and calls drawChords to render one diagram
+        //*******************************************************************
+        function createChart(data, container, year, subtitle, globalColorMap) {
+            console.log(`Creating chart for ${year}:`, data);
+            
+            // Initialize chord mapper with data
+            var mpr = chordMpr(data);
+            
+            // Add all countries to the map and configure filtering
+            mpr
+                .addValuesToMap('FROM_COUNTRY')
+                .addValuesToMap('TO_COUNTRY')
+                .setFilter(function(row, a, b) {
+                    // Match rows where FROM_COUNTRY = a and TO_COUNTRY = b
+                    return (row.FROM_COUNTRY === a.name && row.TO_COUNTRY === b.name);
+                })
+                .setAccessor(function(recs, a, b) {
+                    // Return the trade amount, or 0 if no matching records
+                    if (!recs[0]) return 0;
+                    return +recs[0].AMOUNT;
+                });
+            
+            // Render the chord diagram
+            drawChords(mpr.getMatrix(), mpr.getMap(), container, year, subtitle, globalColorMap);
+        }
+
+        //*******************************************************************
+        //  DRAW THE CHORD DIAGRAM
+        //  Renders SVG chord diagram with D3.js
+        //*******************************************************************
+        function drawChords(matrix, mmap, container, year, subtitle, globalColorMap) {
+            // Diagram dimensions
+            var w = 900, h = 820, r1 = h / 2 - 80, r0 = r1 - 130;
+            
+            // Add year title above diagram
+            container.append('div')
+                .attr('class', 'year-title')
+                .text(year);
+
+            // Color function that looks up country color from global map
+            var color = function(index) {
+                var countryName = _.find(mmap, {id: index}).name;
+                return globalColorMap[countryName];
+            };
+
+            // D3 chord layout configuration
+            var chord = d3.chord()
+                .padAngle(0.05)                    // Space between arcs
+                .sortSubgroups(d3.ascending)       // Sort segments within arcs
+                .sortChords(d3.ascending);         // Sort chord connections
+
+            // Arc generator for country segments
+            var arc = d3.arc()
+                .innerRadius(r0)
+                .outerRadius(r0 + 20);
+
+            // Ribbon generator for connections between countries
+            var ribbon = d3.ribbon()
+                .radius(r0);
+
+            // Create SVG container
+            var svg = container.append("svg")
+                .attr("width", w)
+                .attr("height", h)
+                .append("g")
+                .attr("class", "circle")
+                .attr("transform", "translate(" + w / 2 + "," + (h / 2 - 10) + ")");
+
+            // Background circle
+            svg.append("circle")
+                .attr("r", r0 + 20);
+
+            // Chord reader for tooltip data
+            var rdr = chordRdr(matrix, mmap);
+            var chords = chord(matrix);
+
+            // Create country arc groups
+            var g = svg.selectAll("g.group")
+                .data(chords.groups)
+                .enter().append("g")
+                .attr("class", "group")
+                .on("mouseover", function(event, d) { 
+                    mouseover(event, d, svg, rdr, year); 
+                })
+                .on("mouseout", function(event, d) { 
+                    d3.select("#tooltip").style("visibility", "hidden");
+                });
+
+            // Draw colored arc segments for each country
+            g.append("path")
+                .style("stroke", "black")
+                .style("fill", function(d) { return color(d.index); })
+                .attr("d", arc);
+
+            // Add country labels around the circle
+            g.append("text")
+                .each(function(d) { d.angle = (d.startAngle + d.endAngle) / 2; })
+                .attr("class", "text")
+                .attr("dy", ".35em")
+                .style("font-size", "13px")
+                .style("font-weight", "500")
+                .attr("text-anchor", function(d) { 
+                    return d.angle > Math.PI ? "end" : null; 
+                })
+                .attr("transform", function(d) {
+                    return "rotate(" + (d.angle * 180 / Math.PI - 90) + ")"
+                        + "translate(" + (r0 + 28) + ")"
+                        + (d.angle > Math.PI ? "rotate(180)" : "");
+                })
+                .text(function(d) { return rdr(d).gname; });
+
+            // Draw ribbon connections between countries
+            var chordPaths = svg.selectAll("path.chord")
+                .data(chords)
+                .enter().append("path")
+                .attr("class", "chord")
+                .style("stroke", function(d) { 
+                    return d3.color(color(d.target.index)).darker(); 
+                })
+                .style("fill", function(d) { 
+                    return color(d.target.index); 
+                })
+                .attr("d", ribbon)
+                .on("mouseover", function(event, d) {
+                    // Show detailed trade information in tooltip
+                    d3.select("#tooltip")
+                        .style("visibility", "visible")
+                        .html(chordTip(rdr(d), year))
+                        .style("top", (event.pageY - 100) + "px")
+                        .style("left", (event.pageX - 100) + "px");
+                })
+                .on("mouseout", function(event, d) { 
+                    d3.select("#tooltip").style("visibility", "hidden"); 
+                });
+            
+            //***************************************************************
+            //  CHORD TOOLTIP
+            //  Formats tooltip content for ribbon connections
+            //***************************************************************
+            function chordTip(d, year) {
+                var q = d3.format(".4s"); // Format numbers with SI suffix
+                
+                // Different format if United States is involved
+                if (d.tname === 'United States') {
+                    return `<strong>${year}</strong><br/>` +
+                           "The " + d.tname + " exported " + q(d.tvalue) + " lbs. to " + d.sname 
+                        + "<br/>while importing " + q(d.svalue) + " lbs. from " + d.sname
+                        + "<br/>for a difference of " + q(d.tvalue - d.svalue) + " lbs.";
+                } else {
+                    return `<strong>${year}</strong><br/>` +
+                           d.sname + " exported " + q(d.svalue) + " lbs. to " + d.tname 
+                        + "<br/>while importing " + q(d.tvalue) + " lbs. from " + d.tname    
+                        + "<br/>for a difference of " + q(d.svalue - d.tvalue) + " lbs.";
+                }
+            }
+
+            //***************************************************************
+            //  GROUP TOOLTIP
+            //  Formats tooltip content for country arcs
+            //***************************************************************
+            function groupTip(d, year) {
+                return `<strong>${year}</strong><br/>${d.gname}`;
+            }
+            
+            //***************************************************************
+            //  MOUSEOVER HANDLER
+            //  Highlights selected country and fades others
+            //***************************************************************
+            function mouseover(event, d, svgElement, rdr, year) {
+                var i = d.index;
+                
+                // Show country name in tooltip
+                d3.select("#tooltip")
+                    .style("visibility", "visible")
+                    .html(groupTip(rdr(d), year))
+                    .style("top", (event.pageY - 80) + "px")
+                    .style("left", (event.pageX - 130) + "px");
+
+                // Fade all chords except those connected to this country
+                svgElement.selectAll("path.chord").classed("fade", function(p) {
+                    return p.source.index != i && p.target.index != i;
+                });
+            }
+        }
+    </script>
+</body>
+</html>
