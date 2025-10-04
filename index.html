@@ -327,7 +327,7 @@
     
     <!-- Page header -->
     <div class="main-title">US Beef & Veal : Import / Export Exploratory Analysis</div>
-    <div class="main-subtitle">Interactive Chord Diagram Comparison: 2022 vs 2025</div>
+    <div class="main-subtitle">Interactive Chord Diagram Comparison: 2024 vs 2025</div>
     
     <!-- Main container for insights and chord diagrams -->
     <div class="container-wrapper" id="charts-container"></div>
@@ -448,8 +448,8 @@
         //*******************************************************************
         const CONFIG = {
             chart1: {
-                csvFile: 'Beef-Import-Export-Year-2022.csv',
-                year: '2022 (Jan - Jul)',
+                csvFile: 'Beef-Import-Export-Year-2024.csv',
+                year: '2024 (Jan - Jul)',
                 subtitle: ''
             },
             chart2: {
@@ -473,22 +473,22 @@
 
             // Load both CSV files in parallel
             Promise.all([
-                d3.csv(CONFIG.chart1.csvFile),  // 2022 data
+                d3.csv(CONFIG.chart1.csvFile),  // 2024 data
                 d3.csv(CONFIG.chart2.csvFile)   // 2025 data
             ]).then(function(datasets) {
                 // Clear loading message
                 container.select('.loading').remove();
                 
                 // Validate that both datasets have required columns
-                const [data2022, data2025] = datasets;
+                const [data2024, data2025] = datasets;
                 
-                if (!validateData(data2022, CONFIG.chart1.csvFile) || 
+                if (!validateData(data2024, CONFIG.chart1.csvFile) || 
                     !validateData(data2025, CONFIG.chart2.csvFile)) {
                     return;
                 }
 
                 // Create side-by-side charts with insights panel
-                createChartPair(data2022, data2025, container);
+                createChartPair(data2024, data2025, container);
                 
             }).catch(function(error) {
                 // Handle loading errors
@@ -600,12 +600,12 @@
         //  CREATE CHART PAIR
         //  Creates both chord diagrams and insights panel
         //*******************************************************************
-        function createChartPair(data2022, data2025, container) {
+        function createChartPair(data2024, data2025, container) {
             // Create consistent color mapping across both charts
-            var globalColorMap = createGlobalColorMap(data2022, data2025);
+            var globalColorMap = createGlobalColorMap(data2024, data2025);
             
             // Calculate key insights (totals, changes, etc.)
-            var insights = calculateInsights(data2022, data2025);
+            var insights = calculateInsights(data2024, data2025);
             
             // Create collapsible insights panel at the top
             const insightsContainer = container
@@ -620,7 +620,7 @@
                 .attr('class', 'diagrams-row');
             
             // Create containers for individual charts (side-by-side)
-            const chart2022Container = diagramsRow
+            const chart2024Container = diagramsRow
                 .append('div')
                 .attr('class', 'diagram-container');
             
@@ -629,7 +629,7 @@
                 .attr('class', 'diagram-container');
 
             // Render both chord diagrams
-            createChart(data2022, chart2022Container, CONFIG.chart1.year, CONFIG.chart1.subtitle, globalColorMap);
+            createChart(data2024, chart2024Container, CONFIG.chart1.year, CONFIG.chart1.subtitle, globalColorMap);
             createChart(data2025, chart2025Container, CONFIG.chart2.year, CONFIG.chart2.subtitle, globalColorMap);
         }
 
@@ -637,63 +637,63 @@
         //  CALCULATE KEY INSIGHTS
         //  Computes totals and percentage changes for insight cards
         //*******************************************************************
-        function calculateInsights(data2022, data2025) {
+        function calculateInsights(data2024, data2025) {
             // Calculate US export totals
-            var usExports2022 = _.sumBy(data2022.filter(d => d.FROM_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var usExports2024 = _.sumBy(data2024.filter(d => d.FROM_COUNTRY === 'United States'), d => +d.AMOUNT);
             var usExports2025 = _.sumBy(data2025.filter(d => d.FROM_COUNTRY === 'United States'), d => +d.AMOUNT);
             
             // Calculate US import totals
-            var usImports2022 = _.sumBy(data2022.filter(d => d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var usImports2024 = _.sumBy(data2024.filter(d => d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
             var usImports2025 = _.sumBy(data2025.filter(d => d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
             
             // Find top export destination for each year
-            var topPartner2022 = _.maxBy(data2022.filter(d => d.FROM_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var topPartner2024 = _.maxBy(data2024.filter(d => d.FROM_COUNTRY === 'United States'), d => +d.AMOUNT);
             var topPartner2025 = _.maxBy(data2025.filter(d => d.FROM_COUNTRY === 'United States'), d => +d.AMOUNT);
             
             // Calculate Mexico import totals (US imports from Mexico)
-            var mexicoImports2022 = _.sumBy(data2022.filter(d => d.FROM_COUNTRY === 'Mexico' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var mexicoImports2024 = _.sumBy(data2024.filter(d => d.FROM_COUNTRY === 'Mexico' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
             var mexicoImports2025 = _.sumBy(data2025.filter(d => d.FROM_COUNTRY === 'Mexico' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
             
             // Calculate Brazil import totals (US imports from Brazil)
-            var brazilImports2022 = _.sumBy(data2022.filter(d => d.FROM_COUNTRY === 'Brazil' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var brazilImports2024 = _.sumBy(data2024.filter(d => d.FROM_COUNTRY === 'Brazil' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
             var brazilImports2025 = _.sumBy(data2025.filter(d => d.FROM_COUNTRY === 'Brazil' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
             
             // Calculate Canada import totals (US imports from Canada)
-            var canadaImports2022 = _.sumBy(data2022.filter(d => d.FROM_COUNTRY === 'Canada' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
+            var canadaImports2024 = _.sumBy(data2024.filter(d => d.FROM_COUNTRY === 'Canada' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
             var canadaImports2025 = _.sumBy(data2025.filter(d => d.FROM_COUNTRY === 'Canada' && d.TO_COUNTRY === 'United States'), d => +d.AMOUNT);
             
             // Debug logging to console for verification
             console.log('=== INSIGHTS CALCULATIONS ===');
-            console.log('US Exports 2022:', usExports2022.toLocaleString());
+            console.log('US Exports 2024:', usExports2024.toLocaleString());
             console.log('US Exports 2025:', usExports2025.toLocaleString());
-            console.log('US Imports 2022:', usImports2022.toLocaleString());
+            console.log('US Imports 2024:', usImports2024.toLocaleString());
             console.log('US Imports 2025:', usImports2025.toLocaleString());
-            console.log('Mexico Imports 2022:', mexicoImports2022.toLocaleString());
+            console.log('Mexico Imports 2024:', mexicoImports2024.toLocaleString());
             console.log('Mexico Imports 2025:', mexicoImports2025.toLocaleString());
-            console.log('Mexico Change %:', ((mexicoImports2025 - mexicoImports2022) / mexicoImports2022 * 100).toFixed(1));
-            console.log('Brazil Imports 2022:', brazilImports2022.toLocaleString());
+            console.log('Mexico Change %:', ((mexicoImports2025 - mexicoImports2024) / mexicoImports2024 * 100).toFixed(1));
+            console.log('Brazil Imports 2024:', brazilImports2024.toLocaleString());
             console.log('Brazil Imports 2025:', brazilImports2025.toLocaleString());
-            console.log('Brazil Change %:', ((brazilImports2025 - brazilImports2022) / brazilImports2022 * 100).toFixed(1));
-            console.log('Canada Imports 2022:', canadaImports2022.toLocaleString());
+            console.log('Brazil Change %:', ((brazilImports2025 - brazilImports2024) / brazilImports2024 * 100).toFixed(1));
+            console.log('Canada Imports 2024:', canadaImports2024.toLocaleString());
             console.log('Canada Imports 2025:', canadaImports2025.toLocaleString());
-            console.log('Canada Change %:', ((canadaImports2025 - canadaImports2022) / canadaImports2022 * 100).toFixed(1));
+            console.log('Canada Change %:', ((canadaImports2025 - canadaImports2024) / canadaImports2024 * 100).toFixed(1));
             
             // Return object with all calculated values
             return {
-                usExports2022: usExports2022,
+                usExports2024: usExports2024,
                 usExports2025: usExports2025,
-                usExportsChange: ((usExports2025 - usExports2022) / usExports2022 * 100).toFixed(1),
-                usImports2022: usImports2022,
+                usExportsChange: ((usExports2025 - usExports2024) / usExports2024 * 100).toFixed(1),
+                usImports2024: usImports2024,
                 usImports2025: usImports2025,
-                usImportsChange: ((usImports2025 - usImports2022) / usImports2022 * 100).toFixed(1),
-                topPartner2022: topPartner2022 ? topPartner2022.TO_COUNTRY : 'N/A',
+                usImportsChange: ((usImports2025 - usImports2024) / usImports2024 * 100).toFixed(1),
+                topPartner2024: topPartner2024 ? topPartner2024.TO_COUNTRY : 'N/A',
                 topPartner2025: topPartner2025 ? topPartner2025.TO_COUNTRY : 'N/A',
                 mexicoImports2025: mexicoImports2025,
-                mexicoChange: ((mexicoImports2025 - mexicoImports2022) / mexicoImports2022 * 100).toFixed(1),
+                mexicoChange: ((mexicoImports2025 - mexicoImports2024) / mexicoImports2024 * 100).toFixed(1),
                 brazilImports2025: brazilImports2025,
-                brazilChange: ((brazilImports2025 - brazilImports2022) / brazilImports2022 * 100).toFixed(1),
+                brazilChange: ((brazilImports2025 - brazilImports2024) / brazilImports2024 * 100).toFixed(1),
                 canadaImports2025: canadaImports2025,
-                canadaChange: ((canadaImports2025 - canadaImports2022) / canadaImports2022 * 100).toFixed(1)
+                canadaChange: ((canadaImports2025 - canadaImports2024) / canadaImports2024 * 100).toFixed(1)
             };
         }
 
